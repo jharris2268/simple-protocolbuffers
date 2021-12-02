@@ -23,21 +23,37 @@ pub fn read_uint32(data: &[u8], pos: usize) -> io::Result<(u64, usize)> {
 
     Ok((res, pos + 4))
 }
-pub fn read_uint64(data: &[u8], pos: usize) -> io::Result<(u64, usize)> {
+
+fn read_uint32_le(data: &[u8], pos: usize) -> io::Result<(u64, usize)> {
+    if (pos + 4) > data.len() {
+        return Err(io::Error::new(ErrorKind::Other, "too short"));
+    }
+    let mut res: u64 = 0;
+    //assert!(pos+3 < data.len());
+
+    res |= data[pos + 0] as u64;
+    res |= (data[pos + 1] as u64) << 8;
+    res |= (data[pos + 2] as u64) << 16;
+    res |= (data[pos + 3] as u64) << 24;
+
+    Ok((res, pos + 4))
+}
+
+fn read_uint64_le(data: &[u8], pos: usize) -> io::Result<(u64, usize)> {
     if (pos + 8) > data.len() {
         return Err(io::Error::new(ErrorKind::Other, "too short"));
     }
     let mut res: u64 = 0;
     //assert!(pos+3 < data.len());
 
-    res |= data[pos + 7] as u64;
-    res |= (data[pos + 6] as u64) << 8;
-    res |= (data[pos + 5] as u64) << 16;
-    res |= (data[pos + 4] as u64) << 24;
-    res |= (data[pos + 3] as u64) << 32;
-    res |= (data[pos + 2] as u64) << 40;
-    res |= (data[pos + 1] as u64) << 48;
-    res |= (data[pos + 0] as u64) << 56;
+    res |= data[pos + 0] as u64;
+    res |= (data[pos + 1] as u64) << 8;
+    res |= (data[pos + 2] as u64) << 16;
+    res |= (data[pos + 3] as u64) << 24;
+    res |= (data[pos + 4] as u64) << 32;
+    res |= (data[pos + 5] as u64) << 40;
+    res |= (data[pos + 6] as u64) << 48;
+    res |= (data[pos + 7] as u64) << 56;
     Ok((res, pos + 8))
 }
 
@@ -85,21 +101,18 @@ pub fn read_tag<'a>(data: &'a [u8], pos: usize) -> (PbfTag<'a>, usize) {
         let (v, pos) = read_varint(data, pos);
         return (PbfTag::Value(t >> 3, v), pos);
     } else if (t & 7) == 1 {
-        let (v, pos) = read_uint64(data, pos).expect("!!");
+        let (v, pos) = read_uint64_le(data, pos).expect("!!");
         return (PbfTag::Value(t >> 3, v), pos);
     } else if (t & 7) == 2 {
         let (s, pos) = read_data(data, pos);
         return (PbfTag::Data(t >> 3, s), pos);
     } else if (t & 7) == 5 {
-        let (v, pos) = read_uint32(data, pos).expect("!!");
+        let (v, pos) = read_uint32_le(data, pos).expect("!!");
         return (PbfTag::Value(t >> 3, v), pos);
     } 
     (PbfTag::Null, pos)
 }
 
-pub fn extract_f64_from_u64(v: u64) -> f64 {
-    unsafe { *(&v as *const u64 as *const f64) }
-}
 
 pub struct IterTags<'a> {
     data: &'a [u8],
